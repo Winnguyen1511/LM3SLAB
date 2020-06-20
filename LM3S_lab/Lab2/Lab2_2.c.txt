@@ -1,0 +1,112 @@
+#include <stdint.h>
+#include <stdbool.h>
+#include "inc/tm4c123gh6pm.h"
+#include "inc/hw_memmap.h"
+#include "inc/hw_types.h"
+#include "driverlib/sysctl.h"
+#include "driverlib/interrupt.h"
+#include "driverlib/gpio.h"
+#include "driverlib/timer.h"
+#define TimerA0Enable   TimerEnable(TIMER2_BASE, TIMER_A)
+//#define TimerA0IntEnable
+#define RED_TIME  9
+#define YELLOW_TIME 3
+#define GREEN_TIME  7
+
+#define RED_LIGHT   2
+#define YELLOW_LIGHT  4
+#define GREEN_LIGHT   8
+
+#define RED_STATE       0
+#define YELLOW_STATE    1
+#define GREEN_STATE     2
+
+volatile uint8_t state = 0;
+volatile uint8_t time_count = 0;
+void configClocks(void);
+void configTimer(void);
+void configIO(void);
+int main(void)
+{
+
+    configClocks();
+    configIO();
+    configTimer();
+    TimerA0Enable;
+    IntMasterEnable();
+    while(1)
+    {
+    }
+    return 0;
+}
+void configClocks(void)
+{
+    SysCtlClockSet(SYSCTL_SYSDIV_5|SYSCTL_USE_PLL|SYSCTL_XTAL_16MHZ|SYSCTL_OSC_MAIN);
+}
+void configIO(void)
+{
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+    GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3);
+}
+void configTimer(void)
+{
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER2);
+    TimerConfigure(TIMER2_BASE, TIMER_CFG_PERIODIC);
+    uint32_t ui32Period = SysCtlClockGet();
+    TimerLoadSet(TIMER2_BASE, TIMER_A, ui32Period);
+    IntEnable(INT_TIMER2A);
+    TimerIntEnable(TIMER2_BASE, TIMER_TIMA_TIMEOUT);
+}
+void Timer0IntHandler(void)
+{
+    // Clear the timer interrupt
+    TimerIntClear(TIMER2_BASE, TIMER_TIMA_TIMEOUT);
+    if(RED_STATE == state)
+    {
+        //delay 7s
+        if(time_count > 0)
+        {
+            time_count--;
+        }
+        else
+        {
+            GPIO_PORTF_DATA_R = GREEN_LIGHT;
+            state = GREEN_STATE;
+            time_count = GREEN_TIME;
+        }
+        //turn on green
+    }
+    else if(YELLOW_STATE == state)
+    {
+        //delay 2s
+        if(time_count > 0)
+        {
+            time_count--;
+        }
+        else
+        {
+            GPIO_PORTF_DATA_R = RED_LIGHT;
+            state = RED_STATE;
+            time_count = RED_TIME;
+        }
+        //turn on red
+    }
+    else if(GREEN_STATE == state)
+    {
+        //delay 5s
+        if(time_count > 0)
+        {
+            time_count--;
+        }
+        else
+        {
+            GPIO_PORTF_DATA_R = YELLOW_LIGHT;
+            state = YELLOW_STATE;
+            time_count = YELLOW_TIME;
+        }
+        //turn on yellow
+    }
+    else{
+        state = RED_STATE;
+    }
+}

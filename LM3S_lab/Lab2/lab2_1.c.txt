@@ -1,0 +1,88 @@
+#include"inc\lm3s8962.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include "inc/hw_memmap.h"
+#include "inc/hw_types.h"
+#include "driverlib/sysctl.h"
+#include "driverlib/gpio.h"
+#include "driverlib/timer.h"
+/************************************************************
+* STANDARD BITS
+************************************************************/
+
+#define BIT0                   (0x0001)
+#define BIT1                   (0x0002)
+#define BIT2                   (0x0004)
+#define BIT3                   (0x0008)
+#define BIT4                   (0x0010)
+#define BIT5                   (0x0020)
+#define BIT6                   (0x0040)
+#define BIT7                   (0x0080)
+#define BIT8                   (0x0100)
+#define BIT9                   (0x0200)
+#define BITA                   (0x0400)
+#define BITB                   (0x0800)
+#define BITC                   (0x1000)
+#define BITD                   (0x2000)
+#define BITE                   (0x4000)
+#define BITF                   (0x8000)
+void configClocks(void);
+void configIO(void);
+void configTimer(void);
+void setTime(int time);
+int main()
+{
+  configClocks();
+  configIO();
+  configTimer();
+  while(1)
+  {
+    GPIO_PORTF_DATA_R ^= BIT0;
+    setTime(1);
+  }
+  return 0;
+}
+
+void configClocks(void)
+{
+  SysCtlClockSet (SYSCTL_SYSDIV_1 | SYSCTL_USE_OSC | SYSCTL_OSC_MAIN | SYSCTL_XTAL_8MHZ);
+}
+void configIO(void)
+{
+  SYSCTL_RCGC2_R  |= SYSCTL_RCGC2_GPIOF;
+  GPIO_PORTF_DIR_R |= BIT0;
+  GPIO_PORTF_DEN_R |= BIT0;
+}
+void configTimer(void)
+{
+  // Enable the TIMER 0 
+   SYSCTL_RCGC1_R |= SYSCTL_RCGC1_TIMER0;
+    
+  // Clear TAEN bit of GPTMCTL Register
+   TIMER0_CTL_R &= ~0x0001;
+ // Write to GPTMCFG value 0x0 
+   TIMER0_CFG_R = 0x0;
+   			 
+// Set TARM field in the GPTMTAMR. 
+   TIMER0_TAMR_R |= 0x02;  // 0x1;
+    			
+// Load value 0x7A1200/2 = 0x3D0900 into GPTMTAILR.
+   TIMER0_TAILR_R = 0x003D0900;
+    			
+// Start the timer count down
+   TIMER0_CTL_R |= 0x0001;
+   TIMER0_ICR_R |= 0x01;  
+}
+void setTime(int time)
+{
+  int count = time;
+  while(count != 0)
+  {
+    if((TIMER0_RIS_R & 0x01) != 0)
+    {
+      TIMER0_ICR_R |= 0x01;
+      count--;
+    }
+    //GPIO_PORTA_DATA_R = led[count];
+  }
+}
